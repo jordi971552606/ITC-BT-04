@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Interactivo de Electricidad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Librería para leer archivos de hoja de cálculo (ODS, CSV, XLSX) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .option-label {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .option-label:hover {
+            background-color: #eef2ff;
+        }
+        input[type="radio"]:checked + .option-label {
+            background-color: #c7d2fe;
+            border-color: #6366f1;
+        }
+        fieldset:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #6366f1;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        select:disabled {
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Vista de Contraseña General -->
+    <div id="password-protection-view" class="flex items-center justify-center h-screen bg-gray-900 bg-opacity-50 absolute top-0 left-0 w-full z-50">
+        <div class="text-center bg-white p-12 rounded-xl shadow-2xl max-w-lg">
+            <h1 class="text-3xl font-bold text-gray-900">Accés Protegit</h1>
+            <p class="mt-2 text-gray-600 mb-8">Introdueix la contrasenya per desbloquejar l'accés.</p>
+            <form id="password-protection-form">
+                <input type="password" id="main-password" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" placeholder="Contrasenya">
+                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-300">Desbloquejar</button>
+            </form>
+            <div id="password-error" class="mt-4 text-red-600 text-sm hidden">Contrasenya incorrecta.</div>
+        </div>
+    </div>
+    
+    <!-- Vista de Login de Profesor -->
+    <div id="teacher-login-view" class="hidden items-center justify-center h-screen">
+        <div class="text-center bg-white p-12 rounded-xl shadow-2xl max-w-lg relative">
+             <button id="back-to-role-selection-teacher" class="absolute top-4 left-4 text-gray-500 hover:text-gray-800">&larr; Tornar</button>
+            <h1 class="text-3xl font-bold text-gray-900">Accés Professor</h1>
+            <p class="mt-2 text-gray-600 mb-8">Introdueix la contrasenya per accedir al panell de resultats.</p>
+            <form id="teacher-login-form">
+                <input type="password" id="teacher-password" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" placeholder="Contrasenya">
+                <button type="submit" class="w-full bg-gray-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-800 transition-colors duration-300">Entrar</button>
+            </form>
+             <div id="teacher-login-error" class="mt-4 text-red-600 text-sm hidden">Contrasenya incorrecta.</div>
+        </div>
+    </div>
+
+    <!-- Vista de la Aplicación (Test del Alumno) -->
+    <div id="app-view" class="hidden">
+        <!-- Vista para introducir el nombre -->
+        <div id="name-entry-view" class="flex items-center justify-center h-screen w-full">
+            <div class="text-center bg-white p-12 rounded-xl shadow-2xl max-w-lg relative">
+                <h1 class="text-3xl font-bold text-gray-900" data-translate-key="studentAccessTitle">Accés Alumnes</h1>
+                <p class="mt-2 text-gray-600 mb-8" data-translate-key="studentAccessMsg">Selecciona el teu nom a la llista per començar.</p>
+                <form id="name-entry-form" class="space-y-4">
+                    <select id="student-name-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700">
+                        <option value="" disabled selected data-translate-key="selectNamePlaceholder">-- Selecciona el teu nom --</option>
+                    </select>
+                    <input type="email" id="student-email-display" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100" placeholder="El teu correu electrònic" readonly>
+                    
+                    <div class="space-y-2 pt-2">
+                        <label class="text-gray-600" data-translate-key="selectLangLabel">Selecciona l'idioma del test:</label>
+                        <div id="language-selection" class="flex justify-center gap-4">
+                            <button type="button" id="lang-ca-btn" class="flex-1 py-2 px-4 rounded-lg border-2 border-blue-600 bg-blue-100 text-blue-800 font-semibold">Català</button>
+                            <button type="button" id="lang-es-btn" class="flex-1 py-2 px-4 rounded-lg border-2 border-gray-300 text-gray-600 font-semibold">Castellano</button>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="start-quiz-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed" data-translate-key="startQuizBtn" disabled>Començar Test</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Contenido del Test (oculto hasta introducir el nombre) -->
+        <div id="quiz-content" class="hidden w-full">
+            <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+                 <header class="text-center mb-8">
+                     <div class="flex justify-between items-center mb-4">
+                         <div id="student-info-display" class="text-left text-sm">
+                            <p class="font-bold text-gray-900"></p>
+                            <p class="text-gray-600"></p>
+                         </div>
+                         <button id="back-to-start-btn" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-300" data-translate-key="backToStartBtn">Tornar a l'inici</button>
+                     </div>
+                    <h1 id="quiz-title" class="text-4xl font-bold text-gray-900" data-translate-key="quizTitleDefault">Test: Fonaments d'Electricitat</h1>
+                    <p class="mt-2 text-gray-600" data-translate-key="quizSubtitle">Posa a prova els teus coneixements. Selecciona la resposta correcta per a cada pregunta.</p>
+                </header>
+
+                <div id="recording-instruction-block" class="mb-6 bg-rose-50 border-l-4 border-rose-500 text-rose-800 p-4 rounded-r-lg transition-colors duration-500" role="alert">
+                  <p class="font-bold" data-translate-key="recStep1Title">Pas 1: Inicia la gravació</p>
+                  <p data-translate-key="recStep1Msg">Fes clic al botó per obrir la pàgina de gravació. <b>Important: deselecciona les opcions de Webcam i So abans d'iniciar la gravació.</b> Quan hagis començat, torna aquí i confirma-ho.</p>
+                  <div class="mt-3">
+                      <a id="start-recording-btn" href="https://www.screencapture.com/es/" target="_blank" rel="noopener noreferrer" class="inline-flex items-center bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors duration-300">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                          </svg>
+                          <span data-translate-key="openRecPageBtn">Obrir pàgina de gravació</span>
+                      </a>
+                      <button id="confirm-recording-btn" type="button" class="hidden inline-flex items-center bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-300">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                         </svg>
+                          <span data-translate-key="confirmRecBtn">Pas 2: Confirmo que estic gravant (Desbloquejar Test)</span>
+                      </button>
+                  </div>
+                </div>
+
+                <form id="quiz-form" class="bg-white p-6 sm:p-8 rounded-xl shadow-lg space-y-8">
+                     <fieldset id="quiz-fieldset" disabled>
+                        <div id="quiz-container" class="space-y-6 hidden">
+                            <!-- Las preguntas se cargarán aquí -->
+                        </div>
+
+                        <div id="quiz-navigation" class="hidden pt-6 border-t flex justify-between items-center">
+                            <button type="button" id="prev-question-btn" class="bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed" data-translate-key="prevBtnNav">Anterior</button>
+                            <span id="question-counter" class="text-sm font-medium text-gray-600"></span>
+                            <button type="button" id="next-question-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300" data-translate-key="nextBtnNav">Següent</button>
+                        </div>
+                        
+                        <div id="submit-area" class="pt-6 border-t flex flex-col items-center hidden">
+                             <div id="results-container" class="text-center mb-4 hidden w-full">
+                                <h2 class="text-2xl font-bold" data-translate-key="testFinishedTitle">Test Finalitzat</h2>
+                                <p class="text-gray-600" data-translate-key="testFinishedMsg">Gràcies per completar el test. Les teves respostes han estat enviades.</p>
+                                <div id="save-status" class="text-sm text-gray-500 mt-2"></div>
+                                <div id="stop-recording-reminder" class="hidden mt-6 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded-r-lg text-left">
+                                    <p class="font-bold" data-translate-key="stopRecReminderTitle">¡No ho oblidis!</p>
+                                    <p data-translate-key="stopRecReminderMsg">Si has estat gravant la pantalla, atura la gravació manualment a l'altra pestanya i descarrega el fitxer de vídeo.</p>
+                                </div>
+                            </div>
+                            <button type="submit" id="submit-btn" class="w-full sm:w-auto bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-indigo-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center justify-center space-x-2">
+                                <span id="submit-btn-text" data-translate-key="submitBtnText">Enviar Respostes</span>
+                                <div id="submit-loader" class="loader hidden"></div>
+                            </button>
+                            <div id="logout-reminder" class="hidden mt-4 bg-orange-100 border-l-4 border-orange-500 text-orange-800 p-4 rounded-r-lg text-left">
+                                <p class="font-bold" data-translate-key="logoutReminderTitle">Recordatori Important</p>
+                                <p data-translate-key="logoutReminderMsg">Abans de sortir, recorda aturar la gravació de pantalla manualment i enviar el fitxer de vídeo al professor.</p>
+                            </div>
+                            <div class="flex flex-col sm:flex-row sm:space-x-4 w-full justify-center">
+                                <button type="button" id="confirm-logout-btn" class="w-full sm:w-auto mt-4 bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition-colors duration-300 hidden" data-translate-key="confirmLogoutBtn" style="display: none;">
+                                    He aturat la gravació
+                                </button>
+                                <button type="button" id="student-logout-btn" class="w-full sm:w-auto mt-4 bg-red-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-red-700 transition-colors duration-300 hidden" data-translate-key="studentLogoutBtn">
+                                    Sortir
+                                </button>
+                                <button type="button" id="show-results-btn" class="w-full sm:w-auto mt-4 bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 transition-colors duration-300 hidden" data-translate-key="showReportBtn">
+                                    Mostrar Informe
+                                </button>
+                            </div>
+                        </div>
+                    </fieldset>
+                </form>
+                
+                <footer class="text-center mt-8 py-4 text-gray-500">
+                    <p data-translate-key="footerText">Pàgina generada per a practicar de forma interactiva.</p>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <div id="full-report-container" class="hidden w-full p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+        <!-- El informe completo se mostrará aquí -->
+    </div>
+    
+     <!-- Vista de Configuración del Profesor -->
+    <div id="config-view" class="hidden">
+        <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
+            <header class="text-center mb-8">
+                 <div class="flex justify-end items-center mb-4">
+                     <button id="teacher-logout-btn" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-300">Tancar Sessió</button>
+                 </div>
+                <h1 class="text-4xl font-bold text-gray-900">Panell de Professor</h1>
+            </header>
+            <main class="bg-white p-8 rounded-xl shadow-lg space-y-10">
+                <!-- Sección de Cambiar Contraseña -->
+                <div class="mb-10">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Cambiar contraseña de acceso</h2>
+                    <form id="change-password-form" class="bg-gray-50 p-6 rounded-lg border max-w-md mx-auto flex flex-col gap-4">
+                        <input type="password" id="current-password" class="px-4 py-2 border border-gray-300 rounded-lg" placeholder="Contraseña actual" required>
+                        <input type="password" id="new-password" class="px-4 py-2 border border-gray-300 rounded-lg" placeholder="Nueva contraseña" required>
+                        <input type="password" id="confirm-password" class="px-4 py-2 border border-gray-300 rounded-lg" placeholder="Repetir nueva contraseña" required>
+                        <button type="submit" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300">Cambiar contraseña</button>
+                        <div id="change-password-status" class="text-sm mt-2"></div>
+                    </form>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Resultats dels Alumnes</h2>
+                    <div id="teacher-actions" class="flex flex-col sm:flex-row gap-4 mb-6 pb-6 border-b">
+                         <button id="export-csv-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors duration-300 flex-1 flex items-center justify-center gap-2">
+                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                             Exportar tot (CSV)
+                        </button>
+                         <button id="email-reports-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-300 flex-1 flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                             Enviar Informes per Email
+                        </button>
+                         <button id="clear-results-btn" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors duration-300 flex-1">Esborrar tots els resultats</button>
+                    </div>
+                     <div id="email-status" class="mb-4 text-sm text-gray-600"></div>
+                    <div id="teacher-results-container" class="overflow-x-auto">
+                        <!-- Los resultados se cargarán aquí -->
+                    </div>
+                </div>
+
+                <!-- Sección de Carga de Test -->
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Gestionar Model de Test</h2>
+                    <div class="bg-gray-50 p-6 rounded-lg border">
+                        <label for="file-upload-input" class="block text-sm font-medium text-gray-700">Carrega un nou model de test des d'un arxiu (.ods o .csv):</label>
+                        <input type="file" id="file-upload-input" accept=".ods, .csv, application/vnd.oasis.opendocument.spreadsheet, text/csv" class="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+                        <p class="mt-2 text-xs text-gray-500">
+                            Format del fitxer: La primera fila ha de contenir les capçaleres: 
+                            <code class="text-black">pregunta, opcio_a, opcio_b, opcio_c, opcio_d, resposta_correcta</code> (l'ordre no importa).
+                        </p>
+                        <div id="test-load-status" class="mt-2 text-sm"></div>
+                        <div class="mt-4 flex flex-col sm:flex-row gap-4">
+                            <button id="load-test-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300 flex-1">Carregar Nou Test</button>
+                            <button id="restore-default-btn" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-300 flex-1">Restaurar Test per Defecte</button>
+                        </div>
+                        <hr class="my-6">
+                        <label for="file-upload-es-input" class="block text-sm font-medium text-gray-700 mt-4">Cargar versión en castellano del test (.ods o .csv):</label>
+                        <input type="file" id="file-upload-es-input" accept=".ods, .csv, application/vnd.oasis.opendocument.spreadsheet, text/csv" class="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"/>
+                        <div id="test-load-es-status" class="mt-2 text-sm"></div>
+                        <button id="load-test-es-btn" class="mt-4 bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-700 transition-colors duration-300 w-full">Cargar Test en Castellano</button>
+                    </div>
+                </div>
+
+                <!-- Sección de Carga de Alumnos -->
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Gestionar Llistat d'Alumnes</h2>
+                    <div class="bg-gray-50 p-6 rounded-lg border">
+                        <label for="student-file-upload-input" class="block text-sm font-medium text-gray-700">Carrega un llistat d'alumnes des d'un arxiu (.ods o .csv):</label>
+                        <input type="file" id="student-file-upload-input" accept=".ods, .csv, application/vnd.oasis.opendocument.spreadsheet, text/csv" class="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+                        <p class="mt-2 text-xs text-gray-500">
+                            Format del fitxer: La primera columna ha de ser el nom de l'alumne i la segona el seu correu electrònic. La primera fila pot ser una capçalera.
+                        </p>
+                        <div id="student-load-status" class="mt-2 text-sm"></div>
+                        <div class="mt-4 flex flex-col sm:flex-row gap-4">
+                            <button id="load-student-list-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300 flex-1">Carregar Llistat d'Alumnes</button>
+                            <button id="restore-default-student-list-btn" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-300 flex-1">Restaurar Llistat per Defecte</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+
+    <script>
+        // --- LÒGICA DE CONTRASENYA GENERAL ---
+        const passwordProtectionView = document.getElementById('password-protection-view');
+        const passwordProtectionForm = document.getElementById('password-protection-form');
+        const mainPasswordInput = document.getElementById('main-password');
+        const passwordError = document.getElementById('password-error');
+        const correctPassword = "13HiXH7tcf55123ufxbckjcbu";
+
+        passwordProtectionForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (mainPasswordInput.value === correctPassword) {
+                passwordProtectionView.style.display = 'none';
+                loadActiveStudentList();
+                populateStudentDropdown();
+                showView(appView);
+            } else {
+                passwordError.classList.remove('hidden');
+                mainPasswordInput.value = '';
+            }
+        });
+
+        // Vistas
+        const teacherLoginView = document.getElementById('teacher-login-view');
+        const appView = document.getElementById('app-view');
+        const configView = document.getElementById('config-view');
+        const nameEntryView = document.getElementById('name-entry-view');
+        const quizContent = document.getElementById('quiz-content');
+        const fullReportContainer = document.getElementById('full-report-container');
+
+        // Elementos de alumno
+        const nameEntryForm = document.getElementById('name-entry-form');
+        const studentNameSelect = document.getElementById('student-name-select');
+        const studentEmailDisplay = document.getElementById('student-email-display');
+        const studentInfoDisplay = document.getElementById('student-info-display');
+        const startQuizBtn = document.getElementById('start-quiz-btn');
+        const backToStartBtn = document.getElementById('back-to-start-btn');
+        
+        // Elementos de login de profesor
+        const teacherLoginForm = document.getElementById('teacher-login-form');
+        const teacherPasswordInput = document.getElementById('teacher-password');
+        const teacherLoginError = document.getElementById('teacher-login-error');
+        const backToRoleSelectionTeacherBtn = document.getElementById('back-to-role-selection-teacher');
+        const teacherLogoutBtn = document.getElementById('teacher-logout-btn');
+
+        // Elementos de gestión de test
+        const fileUploadInput = document.getElementById('file-upload-input');
+        const loadTestBtn = document.getElementById('load-test-btn');
+        const restoreDefaultBtn = document.getElementById('restore-default-btn');
+        const testLoadStatus = document.getElementById('test-load-status');
+        const quizTitle = document.getElementById('quiz-title');
+
+        // Elementos de gestión de alumnos
+        const studentFileUploadInput = document.getElementById('student-file-upload-input');
+        const loadStudentListBtn = document.getElementById('load-student-list-btn');
+        const restoreDefaultStudentListBtn = document.getElementById('restore-default-student-list-btn');
+        const studentLoadStatus = document.getElementById('student-load-status');
+
+
+        let currentStudentName = '';
+        let currentStudentEmail = '';
+        let currentQuestionIndex = 0;
+
+        // --- I18N (Internacionalización) ---
+        const translations = {
+            ca: {
+                welcomeTitle: "Benvingut/da al Test d'Electricitat",
+                welcomeMsg: "Si us plau, selecciona el teu rol per continuar.",
+                studentBtn: "Sóc Alumne",
+                teacherBtn: "Sóc Professor",
+                studentAccessTitle: "Accés Alumnes",
+                studentAccessMsg: "Selecciona el teu nom a la llista per començar.",
+                selectNamePlaceholder: "-- Selecciona el teu nom --",
+                allStudentsDone: "Tots els alumnes ja han respost",
+                emailPlaceholder: "El teu correu electrònic",
+                selectLangLabel: "Selecciona l'idioma del test:",
+                startQuizBtn: "Començar Test",
+                backBtn: "&amp;larr; Tornar",
+                backToStartBtn: "Tornar a l'inici",
+                quizTitleDefault: "Test: Fonaments d'Electricitat",
+                quizTitleCustom: "Test Personalitzat",
+                quizSubtitle: "Posa a prova els teus coneixements. Selecciona la resposta correcta per a cada pregunta.",
+                recStep1Title: "Pas 1: Inicia la gravació",
+                recStep1Msg: "Fes clic al botó per obrir la pàgina de gravació. <b>Important: deselecciona les opcions de Webcam i So abans d'iniciar la gravació.</b> Quan hagis començat, torna aquí i confirma-ho.",
+                recStep2Title: "Pas 2: Confirma per començar",
+                recStep2Msg: "Quan hagis iniciat la gravació a l'altra pestanya, fes clic al botó de confirmació per desbloquejar el test.",
+                recConfirmedTitle: "Gravació confirmada",
+                recConfirmedMsg: "El test està desbloquejat. Ja pots començar.",
+                openRecPageBtn: "Obrir pàgina de gravació",
+                confirmRecBtn: "Pas 2: Confirmo que estic gravant (Desbloquejar Test)",
+                submitBtnText: "Enviar Respostes",
+                submitBtnSending: "Enviant...",
+                testFinishedTitle: "Test Finalitzat",
+                testFinishedMsg: "Gràcies per completar el test. Les teves respostes han estat enviades.",
+                stopRecReminderTitle: "No ho oblidis!",
+                stopRecReminderMsg: "Si has estat gravant la pantalla, atura la gravació manualment a l'altra pestanya i descarrega el fitxer de vídeo.",
+                confirmLogoutBtn: "He aturat la gravació",
+                studentLogoutBtn: "Sortir",
+                showReportBtn: "Mostrar Informe",
+                statusSavedLocal: "Resultats guardats localment.",
+                statusErrorLocal: "Error en guardar les dades localment.",
+                statusSendingSheets: "Enviant a Google Sheets...",
+                statusSentSheets: "Resultats enviats a Google Sheets (pendent de confirmació).",
+                statusErrorNetwork: "Error de xarxa en enviar a Google Sheets.",
+                footerText: "Pàgina generada per a practicar de forma interactiva.",
+                prevBtnNav: "Anterior",
+                nextBtnNav: "Següent",
+                logoutReminderTitle: "Recordatori Important",
+                logoutReminderMsg: "Abans de sortir, recorda aturar la gravació de pantalla manualment i enviar el fitxer de vídeo al professor."
+            },
+            es: {
+                welcomeTitle: "Bienvenido/a al Test de Electricidad",
+                welcomeMsg: "Por favor, selecciona tu rol para continuar.",
+                studentBtn: "Soy Alumno",
+                teacherBtn: "Soy Profesor",
+                studentAccessTitle: "Acceso Alumnos",
+                studentAccessMsg: "Selecciona tu nombre en la lista para empezar.",
+                selectNamePlaceholder: "-- Selecciona tu nombre --",
+                allStudentsDone: "Todos los alumnos ya han respondido",
+                emailPlaceholder: "Tu correo electrónico",
+                selectLangLabel: "Selecciona el idioma del test:",
+                startQuizBtn: "Empezar Test",
+                backBtn: "&amp;larr; Volver",
+                backToStartBtn: "Volver al inicio",
+                quizTitleDefault: "Test: Fundamentos de Electricidad",
+                quizTitleCustom: "Test Personalizado (Castellano)",
+                quizSubtitle: "Pon a prueba tus conocimientos. Selecciona la respuesta correcta para cada pregunta.",
+                recStep1Title: "Paso 1: Inicia la grabación",
+                recStep1Msg: "Haz clic en el botón para abrir la página de grabación. <b>Importante: deselecciona las opciones de Webcam y Sonido antes de iniciar la grabación.</b> Cuando hayas comenzado, vuelve aquí y confírmalo.",
+                recStep2Title: "Paso 2: Confirma para empezar",
+                recStep2Msg: "Cuando hayas iniciado la grabación en la otra pestaña, haz clic en el botón de confirmación para desbloquear el test.",
+                recConfirmedTitle: "Grabación confirmada",
+                recConfirmedMsg: "El test está desbloqueado. Ya puedes empezar.",
+                openRecPageBtn: "Abrir página de grabación",
+                confirmRecBtn: "Paso 2: Confirmo que estoy grabando (Desbloquear Test)",
+                submitBtnText: "Enviar Respuestas",
+                submitBtnSending: "Enviando...",
+                testFinishedTitle: "Test Finalizado",
+                testFinishedMsg: "Gracias por completar el test. Tus respuestas han sido enviadas.",
+                stopRecReminderTitle: "¡No lo olvides!",
+                stopRecReminderMsg: "Si has estado grabando la pantalla, detén la grabación manualmente en la otra pestaña y descarga el archivo de vídeo.",
+                confirmLogoutBtn: "He detenido la grabación",
+                studentLogoutBtn: "Salir",
+                showReportBtn: "Mostrar Informe",
+                statusSavedLocal: "Resultados guardados localmente.",
+                statusErrorLocal: "Error al guardar los datos localmente.",
+                statusSendingSheets: "Enviando a Google Sheets...",
+                statusSentSheets: "Resultados enviados a Google Sheets (pendiente de confirmación).",
+                statusErrorNetwork: "Error de red al enviar a Google Sheets.",
+                footerText: "Página generada para practicar de forma interactiva.",
+                prevBtnNav: "Anterior",
+                nextBtnNav: "Siguiente",
+                logoutReminderTitle: "Recordatorio Importante",
+                logoutReminderMsg: "Antes de salir, recuerda detener la grabación de pantalla manualmente y enviar el archivo de vídeo al profesor."
+            }
+        };
+
+        let selectedLanguage = 'ca';
+
+        function setLanguage(lang) {
+            if (!['ca', 'es'].includes(lang)) return;
+            selectedLanguage = lang;
+            document.documentElement.lang = lang;
+
+            if (lang === 'ca') {
+                langCaBtn.classList.add('border-blue-600', 'bg-blue-100', 'text-blue-800');
+                langCaBtn.classList.remove('border-gray-300', 'text-gray-600');
+                langEsBtn.classList.add('border-gray-300', 'text-gray-600');
+                langEsBtn.classList.remove('border-blue-600', 'bg-blue-100', 'text-blue-800');
+            } else {
+                langEsBtn.classList.add('border-blue-600', 'bg-blue-100', 'text-blue-800');
+                langEsBtn.classList.remove('border-gray-300', 'text-gray-600');
+                langCaBtn.classList.add('border-gray-300', 'text-gray-600');
+                langCaBtn.classList.remove('border-blue-600', 'bg-blue-100', 'text-blue-800');
+            }
+
+            document.querySelectorAll('[data-translate-key]').forEach(el => {
+                const key = el.getAttribute('data-translate-key');
+                const translation = translations[lang][key];
+                if (translation) {
+                    if (['backBtn', 'recStep1Msg', 'recStep2Msg'].some(k => k === key)) {
+                        el.innerHTML = translation;
+                    } else {
+                        el.textContent = translation;
+                    }
+                }
+            });
+            
+            populateStudentDropdown();
+            loadActiveTest();
+            
+            studentEmailDisplay.placeholder = translations[lang].emailPlaceholder;
+        }
+
+
+        // --- Datos de Alumnos ---
+        const defaultStudentDataCSV = `alumne,email
+Dariel Aguasvivas de Jesus, daguasvivas1494@alumnes.politecnicllevant.cat
+Alfonso Caballero Montiel,andcabamont@gmail.com
+Andrés Caballero Montiel,acaballero1512@alumnes.politecnicllevant.cat
+Miguel Alejandro Gonzalez Moreno, mgonzalez1472@alumnes.politecnicllevant.cat 
+Marc Jaime Darder, mjaime1473@alumnes.politecnicllevant.cat 
+Mohamed Kourouma,mkourouma1210@alumnes.politecnicllevant.cat
+Jaume Lopéz Llull,jlopez1211@alumnes.politecnicllevant.cat
+Jeremy Josep Olivares llanos,jolivares1077@alumnes.politecnicllevant.cat
+Joan Miquel Oliver Vidal,joliver1507@alumnes.politecnicllevant.cat
+Wasim Ouchen Benali,wouchen1474@alumnes.politecnicllevant.ca
+Yamin Ouchen Benali,youchen1475@alumnes.politecnicllevant.cat
+`;
+
+        let students = [];
+
+        function parseStudentData(csvString) {
+            const lines = csvString.trim().split('\n');
+            const header = lines.shift().toLowerCase();
+            
+            students = lines.map(line => {
+                const parts = line.split(',');
+                if (parts.length < 2) return null;
+                return {
+                    name: parts[0].trim(),
+                    email: parts[1].trim()
+                };
+            }).filter(Boolean)
+              .sort((a, b) => a.name.localeCompare(b.name));
+        }
+        
+        function loadActiveStudentList() {
+             const customStudentList = localStorage.getItem('customStudentListCSV');
+             if (customStudentList) {
+                parseStudentData(customStudentList);
+             } else {
+                parseStudentData(defaultStudentDataCSV);
+             }
+        }
+
+        function populateStudentDropdown() {
+            const placeholder = translations[selectedLanguage].selectNamePlaceholder;
+            studentNameSelect.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
+            
+            const allResults = JSON.parse(localStorage.getItem('testResults')) || [];
+            const submittedEmails = allResults.map(result => result.studentEmail);
+
+            const availableStudents = students.filter(student => !submittedEmails.includes(student.email));
+
+            if (availableStudents.length === 0) {
+                const option = document.createElement('option');
+                option.value = "";
+                option.textContent = translations[selectedLanguage].allStudentsDone;
+                option.disabled = true;
+                studentNameSelect.appendChild(option);
+                startQuizBtn.disabled = true;
+            } else {
+                availableStudents.forEach(student => {
+                    const option = document.createElement('option');
+                    option.value = student.email;
+                    option.textContent = student.name;
+                    studentNameSelect.appendChild(option);
+                });
+            }
+        }
+
+
+        // --- Quiz Logic ---
+        const defaultTestCAT = `"pregunta","opcio_a","opcio_b","opcio_c","opcio_d","resposta_correcta"
+"Quina és la potència mínima a preveure en noves construccions per a habitatges amb electrificació bàsica?","7.360 W","9.200 W","5.750 W","3.450 W",C
+"Quina de les següents condicions fa que un habitatge requereixi electrificació elevada?","Tenir una superfície útil de 140 m2","Si el nombre de punts d'enllumenat és superior a 20","Si està prevista la calefacció elèctrica","Si el nombre de preses de corrent és igual a 20",C
+"Per a habitatges amb electrificació bàsica; els dos valors possibles de potència a preveure; condicionats pel calibre de l'IGA; són:","5.750 W (25 A) i 9.200 W (40 A)","7.360 W (32 A) i 9.200 W (40 A)","5.750 W (25 A) i 7.360 W (32 A)","5.750 W (25 A) i 11.500 W (50 A)",C
+"Es considera que un habitatge requereix electrificació elevada si la seva superfície útil és superior a:","100 m2","140 m2","160 m2","200 m2",C
+"Quin és el coeficient de simultaneïtat per a un edifici que consta de 7 habitatges?","5.4","6.2","7","7.8",B
+"Per a la càrrega corresponent als serveis generals; com ascensors o grups de pressió; quin factor de reducció per simultaneïtat s'aplica?","0.5","S'aplica el factor de la Taula 1","Cap (factor = 1)","S'aplica un factor del 0.8",C
+"Quin és el mínim de càrrega a considerar per a locals comercials o d'oficines (en W/m2 per planta)?","125 W/m2","50 W/m2","100 W/m2","75 W/m2",C
+"Quina potència mínima s'ha de considerar per a edificis destinats a concentració d'indústries (en W/m2 per planta)?","100 W/m2","125 W/m2","150 W/m2","175 W/m2",B
+"Per a garatges amb ventilació forçada; quina és la càrrega mínima a considerar (en W/m2 per planta)?","10 W/m2","15 W/m2","20 W/m2","5 W/m2",C
+"Es denominen instal·lacions d'enllaç aquelles que uneixen la caixa general de protecció (CGP) o caixes generals de protecció; incloses aquestes; amb:","La xarxa de distribució","El Centre de Transformació (CT)","Les instal·lacions interiors o receptores de l'usuari","L'escomesa",C
+"La caixa que inclou la CGP i l'equip de mesura per a un únic usuari o dos usuaris alimentats des del mateix lloc es denomina:","Caixa de Derivació (CD)","Caixa de Protecció i Mesura (CPM)","Concentració de Comptadors (CC)","Quadre General de Comandament i Protecció (CGMP)",B
+"En els esquemes amb centralitzacions de més de dos comptadors; quin element nou és obligatori introduir; la missió del qual és desconnectar en càrrega tota la concentració?","El Maxímetre","L'Interruptor General Automàtic (IGA)","L'Interruptor General de Maniobra","La Unitat de Telecomunicacions",C
+"La Derivació Individual (DI) es defineix com la part de la instal·lació que; partint de l'embarrat general; subministra energia elèctrica a:","La Línia General d'Alimentació","L'Interruptor General de Maniobra","Una instal·lació d'usuari","L'escomesa",C
+"Què constitueix el conjunt de la derivació individual i la instal·lació interior?","La centralització de comptadors","Les instal·lacions d'enllaç","La instal·lació privada","La xarxa de distribució",C
+"Quin és el rang d'intensitat màxima per al qual s'utilitza l'Interruptor de Control de Potència (ICP) en subministraments de baixa tensió?","Fins a 50 A","Fins a 63 A","Fins a 90 A","Més de 100 A",B
+"Quins dispositius s'utilitzen per a subministraments d'intensitat superior a 63 A en lloc de l'ICP?","Un interruptor diferencial d'alta sensibilitat","Interruptors d'intensitat regulable; maxímetres o integradors incorporats a l'equip de mesura","Solament l'Interruptor General Automàtic (IGA)","Fusibles de seguretat de 100 A",B
+"Segons la Llegenda dels esquemes; quin element és el número 8?","Caixa general de protecció","Emplaçament de comptadors","Derivació individual","Fusible de seguretat",C
+"Segons la Llegenda dels esquemes; quin element és el número 13?","Caixa per a interruptor de control de potència","Dispositius generals de comandament i protecció","Instal·lació interior","Escomesa",C
+"En el cas d'edificis que alberguin al seu interior un centre de transformació (CT); quins elements poden exercir la funció de CGP?","Els fusibles de l'escomesa","Els fusibles de l'LGA","Els fusibles del quadre de baixa tensió d'aquest centre","L'Interruptor General de Maniobra del CT",C
+"Si l'escomesa és aèria; la CGP s'instal·larà en muntatge superficial a una alçada sobre el terra compresa entre:","1 m i 2 m","2.5 m i 3.5 m","3 m i 4 m","0.7 m i 1.8 m",B
+"Si la CGP s'instal·la en un nínxol a causa d'una escomesa subterrània; la porta d'aquest nínxol ha de tenir un grau de protecció IK de:","IK 07","IK 08","IK 09","IK 10",C
+"La part inferior de la porta del nínxol de la CGP (escomesa subterrània) es trobarà a una distància mínima del terra de:","10 cm","20 cm","30 cm","50 cm",B
+"Quantes CGP s'allotjaran com a màxim a l'interior del mateix nínxol?","Una; per garantir l'aïllament","Dues; disposant una caixa per cada LGA","Tres; si l'escomesa és trifàsica","Quatre; segons el RBT 2002",B
+"Quin és el tipus de porta més comú per als nínxols de les CGP en escomeses subterrànies?","Porta metàl·lica inoxidable","Porta de formigó armat","Porta metàl·lica esmaltada","Porta d'alumini anoditzat",C
+"En els esquemes d'instal·lacions d'enllaç; quina és la ubicació correcta de la CGP en relació a l'escomesa?","Abans de l'escomesa","A l'interior de l'escomesa","Després de l'escomesa","En paral·lel a l'escomesa",C
+"Quina característica principal té la Caixa de Protecció i Mesura (CPM) respecte a la CGP?","És de menor mida","Inclou l'equip de mesura (comptador)","Té major resistència mecànica","Utilitza un tipus diferent de fusibles",B
+"En edificis destinats principalment a habitatges; quin és l'element obligatori entre la CGP i la DI?","L'ICP (Interruptor de Control de Potència)","Un interruptor diferencial","La Caixa de Derivació","Un fusible addicional",C
+"Quina és la funció principal de la Línia General d'Alimentació (LGA)?","Connectar la xarxa de distribució amb l'escomesa","Connectar l'escomesa amb la CGP o CPM","Connectar la CGP amb les derivacions individuals","Connectar els comptadors amb l'ICP",B
+"Quina protecció ha de tenir l'LGA contra sobrecàrregues i curtcircuits?","Només fusibles de seguretat","Només interruptors automàtics","Fusibles de seguretat o interruptors automàtics","Interruptors diferencials",C
+"En el trajecte de l'LGA des de l'escomesa fins a la CGP; quin és el mètode d'instal·lació més comú?","Encastades a les parets","En tubs d'acer galvanitzat o alumini","A l'aire lliure sense protecció","En canaletes obertes de formigó",B
+"Quina és la secció mínima del conductor de l'LGA per a instal·lacions d'ús general?","6 mm2","10 mm2","16 mm2","25 mm2",B
+"En edificis amb més d'una LGA; quina característica han de complir totes elles?","Ser de diferent secció","Tenir la mateixa longitud i secció","Estar en diferents canaletes","Ser de diferent material",B
+"Quin element marca el punt d'inici de l'LGA?","L'escomesa","El comptador","La CGP o CPM","L'ICP",C
+"Quin és el material del conductor més habitual per a l'LGA?","Alumini pur","Coure","Acer galvanitzat","Aliatge d'alumini",B
+"En cas d'una LGA de gran longitud; quina consideració especial s'ha de tenir?","Augmentar la secció del conductor per reduir caigudes de tensió","Disminuir la secció per estalviar coure","Utilitzar protecció diferencial addicional","Instal·lar-la en horitzontal",A
+"Què passa si l'LGA no està degudament protegida contra sobrecàrregues?","No hi ha conseqüències greus","Només afecta l'aïllament del coure","Pot provocar incendis","Només augmenta el consum d'energia",C
+"Quina és la funció principal de la Derivació Individual (DI)?","Protegir la instal·lació general de l'edifici","Connectar l'LGA amb la instal·lació interior de l'usuari","Connectar l'escomesa amb la CGP","Distribuir energia als serveis comuns",B
+"On s'instal·la el dispositiu general de comandament i protecció (DGMP) a la DI?","A l'inici de la DI","Al final de la DI","A l'inici de la instal·lació interior de l'usuari","Al comptador",C
+"Quina protecció ha de portar la DI?","Només fusibles de seguretat","Només interruptors automàtics","Fusibles de seguretat o interruptors automàtics","Només interruptors diferencials",C
+"Quina és la secció mínima del conductor en una DI monofàsica d'ús domèstic?","6 mm2","10 mm2","16 mm2","25 mm2",B
+"En cas d'una DI trifàsica; quina característica han de tenir els conductors actius?","Poden ser de seccions diferents","Han de ser de la mateixa secció","El neutre ha de ser de major secció","El neutre ha de tenir igual secció que la fase de major secció",B
+"Quin element marca el final de la DI?","L'ICP","El comptador","El DGMP (dispositiu general de comandament i protecció)","La caixa de derivació",C
+"En instal·lacions de major complexitat; quina protecció addicional pot ser necessària a la DI?","Protecció contra sobrecàrregues solament","Protecció diferencial","Protecció tèrmica","No es necessita protecció addicional",B
+"Quin és l'allotjament habitual del DGMP en habitatges unifamiliars?","A la coberta de l'edifici","Al soterrani","Pròxim a la porta d'entrada","Al garatge",C
+"En cas que la DI tingui una longitud considerable; quina consideració s'ha de prendre?","Disminuir la secció per economitzar coure","Augmentar la secció per reduir caigudes de tensió","Instal·lar fusibles addicionals","Utilitzar protecció diferencial doble",B
+"Quina és la funció principal del comptador elèctric en una instal·lació d'enllaç?","Protegir la instal·lació de curtcircuits","Mesurar l'energia elèctrica consumida","Regular la tensió de la xarxa","Desconnectar l'energia en cas de sobrecàrrega",B
+"On s'instal·la habitualment el comptador en un habitatge unifamiliar?","Al soterrani","A la façana de l'edifici pròxim a la CGP","A l'interior de l'habitatge","A la teulada",B
+"Quina característica ha de tenir el lloc d'instal·lació del comptador?","Ser fosc per no danyar l'aparell","Ser accessible i estar protegit","Estar tancat hermèticament","Ser molt calorós perquè funcioni millor",B
+"Quin tipus de comptador és el més habitual en instal·lacions domèstiques?","Comptador trifàsic d'inducció","Comptador monofàsic d'inducció","Comptador electrònic d'energia reactiva","Comptador de potència reactiva",B
+"Quin és l'element que permet la lectura del consum en un comptador d'inducció?","Una pantalla digital","Una sèrie de dígits en rodets","Una agulla en una escala","Un codi de barres",B
+"En cas de més d'un usuari al mateix edifici; què s'ha d'instal·lar?","Un únic comptador per a tot l'edifici","Diversos comptadors centralitzats","Un comptador a cada derivació individual","Un comptador a l'escomesa",B
+"Quin element ha de precedir abans del comptador per protegir-lo?","L'ICP directament","Només els fusibles","La CGP o CPM","Una resistència de limitació",C
+"En comptadors electrònics; quin avantatge tenen davant els d'inducció?","Són més barats","Tenen major precisió i poden registrar més dades","Consumen més energia","No necessiten manteniment",B
+"Quina és la tensió nominal d'un comptador domèstic monofàsic?","120 V","220 V","380 V","400 V",B
+"On s'instal·la l'Interruptor General Automàtic (IGA) en una instal·lació?","A la CGP","A l'escomesa","Després del comptador i abans de la DI","En el DGMP de cada usuari",C
+"Quina és la funció de l'interruptor diferencial en una instal·lació d'usuari?","Protegir contra sobrecàrregues","Protegir contra contactes indirectes","Limitar la potència","Mesurar el corrent",B
+"Quina sensibilitat ha de tenir un interruptor diferencial en una instal·lació domèstica?","300 mA","500 mA","30 mA","1000 mA",C
+"Què és un limitador de sobretensions en una instal·lació?","Un dispositiu que limita la potència contractada","Un aparell que protegeix contra pujades sobtades de tensió","Un interruptor automàtic","Un comptador d'energia",B
+"Quin és l'element de protecció més important a l'entrada d'una instal·lació domèstica?","El comptador","L'ICP o Interruptor General Automàtic","El comptador","Els endolls",B
+"Què ha de complir un dispositiu de protecció contra curtcircuits en una instal·lació?","Desconnectar automàticament en cas de curtcircuit","Permetre el pas indefinit de corrent","Només desconnectar manualment","Indicar visualment l'error sense desconnectar",A
+`;
+ const defaultTestES = `"pregunta","opcio_a","opcio_b","opcio_c","opcio_d","resposta_correcta"
+"¿Cuál es la potencia mínima a prever en nuevas construcciones para viviendas con electrificación básica?","7.360 W","9.200 W","5.750 W","3.450 W",C
+"¿Cuál de las siguientes condiciones hace que una vivienda requiera electrificación elevada?","Tener una superficie útil de 140 m2","Si el número de puntos de alumbrado es superior a 20","Si está prevista la calefacción eléctrica","Si el número de tomas de corriente es igual a 20",C
+"Para viviendas con electrificación básica; los dos valores posibles de potencia a prever; condicionados por el calibre del IGA; son:","5.750 W (25 A) y 9.200 W (40 A)","7.360 W (32 A) y 9.200 W (40 A)","5.750 W (25 A) y 7.360 W (32 A)","5.750 W (25 A) y 11.500 W (50 A)",C
+"Se considera que una vivienda requiere electrificación elevada si su superficie útil es superior a:","100 m2","140 m2","160 m2","200 m2",C
+"¿Cuál es el coeficiente de simultaneidad para un edificio que consta de 7 viviendas?","5.4","6.2","7","7.8",B
+"Para la carga correspondiente a los servicios generales; como ascensores o grupos de presión; ¿qué factor de reducción por simultaneidad se aplica?","0.5","Se aplica el factor de la Tabla 1","Ninguno (factor = 1)","Se aplica un factor del 0.8",C
+"¿Cuál es el mínimo de carga a considerar para locales comerciales o de oficinas (en W/m2 por planta)?","125 W/m2","50 W/m2","100 W/m2","75 W/m2",C
+"¿Qué potencia mínima se debe considerar para edificios destinados a concentración de industrias (en W/m2 por planta)?","100 W/m2","125 W/m2","150 W/m2","175 W/m2",B
+"Para garajes con ventilación forzada; ¿cuál es la carga mínima a considerar (en W/m2 por planta)?","10 W/m2","15 W/m2","20 W/m2","5 W/m2",C
+"Se denominan instalaciones de enlace a aquellas que unen la caja general de protección (CGP) o cajas generales de protección; incluidas éstas; con:","La red de distribución","El Centro de Transformación (CT)","Las instalaciones interiores o receptoras del usuario","La acometida",C
+"La caja que incluye la CGP y el equipo de medida para un único usuario o dos usuarios alimentados desde el mismo lugar se denomina:","Caja de Derivación (CD)","Caja de Protección y Medida (CPM)","Concentración de Contadores (CC)","Cuadro General de Mando y Protección (CGMP)",B
+"En los esquemas con centralizaciones de más de dos contadores; ¿qué elemento nuevo es obligatorio introducir; cuya misión es desconectar en carga toda la concentración?","El Maxímetro","El Interruptor General Automático (IGA)","El Interruptor General de Maniobra","La Unidad de Telecomunicaciones",C
+"La Derivación Individual (DI) se define como la parte de la instalación que; partiendo del embarrado general; suministra energía eléctrica a:","La Línea General de Alimentación","El Interruptor General de Maniobra","Una instalación de usuario","La acometida",C
+"¿Qué constituye el conjunto de la derivación individual y la instalación interior?","La centralización de contadores","Las instalaciones de enlace","La instalación privada","La red de distribución",C
+"¿Cuál es el rango de intensidad máxima para el cual se utiliza el Interruptor de Control de Potencia (ICP) en suministros de baja tensión?","Hasta 50 A","Hasta 63 A","Hasta 90 A","Más de 100 A",B
+"¿Qué dispositivos se utilizan para suministros de intensidad superior a 63 A en lugar del ICP?","Un interruptor diferencial de alta sensibilidad","Interruptores de intensidad regulable; maxímetros o integradores incorporados al equipo de medida","Solamente el Interruptor General Automático (IGA)","Fusibles de seguridad de 100 A",B
+"Según la Leyenda de los esquemas; ¿qué elemento es el número 8?","Caja general de protección","Emplazamiento de contadores","Derivación individual","Fusible de seguridad",C
+"Según la Leyenda de los esquemas; ¿qué elemento es el número 13?","Caja para interruptor de control de potencia","Dispositivos generales de mando y protección","Instalación interior","Acometida",C
+"En el caso de edificios que alberguen en su interior un centro de transformación (CT); ¿qué elementos pueden desempeñar la función de CGP?","Los fusibles de la acometida","Los fusibles de la LGA","Los fusibles del cuadro de baja tensión de dicho centro","El Interruptor General de Maniobra del CT",C
+"Si la acometida es aérea; la CGP se instalará en montaje superficial a una altura sobre el suelo comprendida entre:","1 m y 2 m","2.5 m y 3.5 m","3 m y 4 m","0.7 m y 1.8 m",B
+"Si la CGP se instala en un nicho debido a una acometida subterránea; la puerta de dicho nicho debe tener un grado de protección IK de:","IK 07","IK 08","IK 09","IK 10",C
+"La parte inferior de la puerta del nicho de la CGP (acometida subterránea) se encontrará a una distancia mínima del suelo de:","10 cm","20 cm","30 cm","50 cm",B
+"¿Cuántas CGP se alojarán como máximo en el interior del mismo nicho?","Una; para garantizar el aislamiento","Dos; disponiendo una caja por cada LGA","Tres; si la acometida es trifásica","Cuatro; según el RBT 2002",B
+"¿Cuál es el tipo de puerta más común para los nichos de las CGP en acometidas subterráneas?","Puerta metálica inoxidable","Puerta de hormigón armado","Puerta metálica esmaltada","Puerta de aluminio anodizado",C
+"En los esquemas de instalaciones de enlace; ¿cuál es la ubicación correcta de la CGP en relación a la acometida?","Antes de la acometida","En el interior de la acometida","Después de la acometida","En paralelo a la acometida",C
+"¿Qué característica principal tiene la Caja de Protección y Medida (CPM) respecto a la CGP?","Es de menor tamaño","Incluye el equipo de medida (contador)","Tiene mayor resistencia mecánica","Utiliza un tipo diferente de fusibles",B
+"En edificios destinados principalmente a viviendas; ¿cuál es el elemento obligatorio entre la CGP y la DI?","El ICP (Interruptor de Control de Potencia)","Un interruptor diferencial","La Caja de Derivación","Un fusible adicional",C
+"¿Cuál es la función principal de la Línea General de Alimentación (LGA)?","Conectar la red de distribución con la acometida","Conectar la acometida con la CGP o CPM","Conectar la CGP con las derivaciones individuales","Conectar los contadores con el ICP",B
+"¿Qué protección debe tener la LGA contra sobrecargas y cortocircuitos?","Solo fusibles de seguridad","Solo interruptores automáticos","Fusibles de seguridad o interruptores automáticos","Interruptores diferenciales",C
+"En el trayecto de la LGA desde la acometida hasta la CGP; ¿cuál es el método de instalación más común?","Embutidas en las paredes","En tubos de acero galvanizado o aluminio","Al aire libre sin protección","En canaletas abiertas de hormigón",B
+"¿Cuál es la sección mínima del conductor de la LGA para instalaciones de uso general?","6 mm2","10 mm2","16 mm2","25 mm2",B
+"En edificios con más de una LGA; ¿qué característica deben cumplir todas ellas?","Ser de diferente sección","Tener la misma longitud y sección","Estar en diferentes canaletas","Ser de diferente material",B
+"¿Qué elemento marca el punto de inicio de la LGA?","La acometida","El contador","La CGP o CPM","El ICP",C
+"¿Cuál es el material del conductor más habitual para la LGA?","Aluminio puro","Cobre","Acero galvanizado","Aleación de aluminio",B
+"En caso de una LGA de gran longitud; ¿qué consideración especial se debe tener?","Aumentar la sección del conductor para reducir caídas de tensión","Disminuir la sección para ahorrar cobre","Utilizar protección diferencial adicional","Instalarla en horizontal",A
+"¿Qué ocurre si la LGA no está debidamente protegida contra sobrecargas?","No hay consecuencias graves","Solo afecta al aislamiento del cobre","Puede provocar incendios","Solo aumenta el consumo de energía",C
+"¿Cuál es la función principal de la Derivación Individual (DI)?","Proteger la instalación general del edificio","Conectar la LGA con la instalación interior del usuario","Conectar la acometida con la CGP","Distribuir energía a los servicios comunes",B
+"¿Dónde se instala el dispositivo general de mando y protección (DGMP) en la DI?","En el inicio de la DI","En el final de la DI","Al inicio de la instalación interior del usuario","En el contador",C
+"¿Qué protección debe llevar la DI?","Solo fusibles de seguridad","Solo interruptores automáticos","Fusibles de seguridad o interruptores automáticos","Solo interruptores diferenciales",C
+"¿Cuál es la sección mínima del conductor en una DI monofásica de uso doméstico?","6 mm2","10 mm2","16 mm2","25 mm2",B
+"En caso de una DI trifásica; ¿qué característica deben tener los conductores activos?","Pueden ser de secciones diferentes","Deben ser de la misma sección","El neutro debe ser de mayor sección","El neutro debe tener igual sección que la fase de mayor sección",B
+"¿Qué elemento marca el final de la DI?","El ICP","El contador","El DGMP (dispositivo general de mando y protección)","La caja de derivación",C
+"En instalaciones de mayor complejidad; ¿qué protección adicional puede ser necesaria en la DI?","Protección contra sobrecargas solamente","Protección diferencial","Protección térmica","No se necesita protección adicional",B
+"¿Cuál es el alojamiento habitual del DGMP en viviendas unifamiliares?","En la cubierta del edificio","En el sótano","Próximo a la puerta de entrada","En el garaje",C
+"En caso de que la DI tenga una longitud considerable; ¿qué consideración se debe tomar?","Disminuir la sección para economizar cobre","Aumentar la sección para reducir caídas de tensión","Instalar fusibles adicionales","Utilizar protección diferencial doble",B
+"¿Cuál es la función principal del contador eléctrico en una instalación de enlace?","Proteger la instalación de cortocircuitos","Medir la energía eléctrica consumida","Regular la tensión de la red","Desconectar la energía en caso de sobrecarga",B
+"¿Dónde se instala habitualmente el contador en una vivienda unifamiliar?","En el sótano","En la fachada del edificio próximo a la CGP","En el interior de la vivienda","En el tejado",B
+"¿Qué característica debe tener el lugar de instalación del contador?","Ser oscuro para no dañar el aparato","Ser accesible y estar protegido","Estar cerrado hermalmente","Ser muy caluroso para que funcione mejor",B
+"¿Qué tipo de contador es el más habitual en instalaciones domésticas?","Contador trifásico de inducción","Contador monofásico de inducción","Contador electrónico de energía reactiva","Contador de potencia reactiva",B
+"¿Cuál es el elemento que permite la lectura del consumo en un contador de inducción?","Una pantalla digital","Una serie de dígitos en rodillos","Una aguja en una escala","Un código de barras",B
+"En caso de más de un usuario en el mismo edificio; ¿qué se debe instalar?","Un único contador para todo el edificio","Varios contadores centralizados","Un contador en cada derivación individual","Un contador en la acometida",B
+"¿Qué elemento debe precederse antes del contador para protegerlo?","El ICP directamente","Solo los fusibles","La CGP o CPM","Una resistencia de limitación",C
+"En contadores electrónicos; ¿qué ventaja tienen frente a los de inducción?","Son más baratos","Tienen mayor precisión y pueden registrar más datos","Consumen más energía","No necesitan mantenimiento",B
+"¿Cuál es la tensión nominal de un contador doméstico monofásico?","120 V","220 V","380 V","400 V",B
+"¿Dónde se instala el Interruptor General Automático (IGA) en una instalación?","En la CGP","En la acometida","Después del contador y antes de la DI","En el DGMP de cada usuario",C
+"¿Cuál es la función del interruptor diferencial en una instalación de usuario?","Proteger contra sobrecargas","Proteger contra contactos indirectos","Limitar la potencia","Medir la corriente",B
+"¿Qué sensibilidad debe tener un interruptor diferencial en una instalación doméstica?","300 mA","500 mA","30 mA","1000 mA",C
+"¿Qué es un limitador de sobretensiones en una instalación?","Un dispositivo que limita la potencia contratada","Un aparato que protege contra subidas súbitas de tensión","Un interruptor automático","Un contador de energía",B
+"¿Cuál es el elemento de protección más importante en la entrada de una instalación doméstica?","El contador","El ICP o Interruptor General Automático","El contador","Los enchufes",B
+"¿Qué debe cumplir un dispositivo de protección contra cortocircuitos en una instalación?","Desconectar automáticamente en caso de cortocircuito","Permitir el paso indefinido de corriente","Solo desconectar manualmente","Indicar visualmente el fallo sin desconectar",A
+`;       
+        let questions = [];
+        let answerKey = [];
+        
+        const startRecordingBtn = document.getElementById('start-recording-btn');
+        const confirmRecordingBtn = document.getElementById('confirm-recording-btn');
+        const quizFieldset = document.getElementById('quiz-fieldset');
+        const recordingInstructionBlock = document.getElementById('recording-instruction-block');
+        const quizContainer = document.getElementById('quiz-container');
+        const submitArea = document.getElementById('submit-area');
+        const quizForm = document.getElementById('quiz-form');
+        const resultsContainer = document.getElementById('results-container');
+        const stopRecordingReminder = document.getElementById('stop-recording-reminder');
+        const submitBtn = document.getElementById('submit-btn');
+        const submitBtnText = document.getElementById('submit-btn-text');
+        const submitLoader = document.getElementById('submit-loader');
+        const confirmLogoutBtn = document.getElementById('confirm-logout-btn');
+        const studentLogoutBtn = document.getElementById('student-logout-btn');
+        const logoutReminder = document.getElementById('logout-reminder');
+        const showResultsBtn = document.getElementById('show-results-btn');
+        const saveStatus = document.getElementById('save-status');
+        
+        function parseTestFromSheetData(sheetData) {
+            if (!sheetData || sheetData.length < 1) {
+                throw new Error("El fitxer està buit.");
+            }
+            
+            const header = sheetData.shift().map(h => String(h).toLowerCase().trim());
+            const expectedHeaders = ["pregunta", "opcio_a", "opcio_b", "opcio_c", "opcio_d", "resposta_correcta"];
+            
+            const headerMap = {};
+            const missingHeaders = [];
+
+            expectedHeaders.forEach(expected => {
+                let found = false;
+                for (const h of header) {
+                    if (h.includes(expected)) {
+                        headerMap[expected] = header.indexOf(h);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    missingHeaders.push(expected);
+                }
+            });
+
+            if (missingHeaders.length > 0) {
+                throw new Error(`Falten les següents columnes obligatòries: ${missingHeaders.join(', ')}`);
+            }
+
+            const newQuestions = [];
+            const newAnswerKey = [];
+
+            sheetData.forEach((row, index) => {
+                if (!row[headerMap["pregunta"]]) return;
+                
+                const pregunta = row[headerMap["pregunta"]];
+                const optA = row[headerMap["opcio_a"]];
+                const optB = row[headerMap["opcio_b"]];
+                const optC = row[headerMap["opcio_c"]];
+                const optD = row[headerMap["opcio_d"]];
+                const resposta = row[headerMap["resposta_correcta"]];
+
+                if (!pregunta || !optA || !optB || !optC || !optD || !resposta) return;
+                
+                newQuestions.push({
+                    id: index,
+                    question: String(pregunta),
+                    options: [ `a) ${optA}`, `b) ${optB}`, `c) ${optC}`, `d) ${optD}` ]
+                });
+                newAnswerKey.push(String(resposta).trim().toLowerCase());
+            });
+
+            if (newQuestions.length === 0) {
+                throw new Error("No s'han trobat preguntes vàlides al fitxer.");
+            }
+
+            questions = newQuestions;
+            answerKey = newAnswerKey;
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function loadQuiz() {
+            quizContainer.innerHTML = '';
+            let shuffledQuestions = [...questions];
+            shuffle(shuffledQuestions);
+            
+            shuffledQuestions.forEach((questionData, displayIndex) => {
+                const { id, question, options } = questionData;
+                const questionElement = document.createElement('div');
+                questionElement.className = 'question-block border-t pt-6 hidden';
+                questionElement.id = `question-block-${id}`;
+                
+                let shuffledOptions = [...options];
+                shuffle(shuffledOptions);
+
+                let optionsHTML = '';
+                const displayLetters = ['A', 'B', 'C', 'D'];
+                shuffledOptions.forEach((option, index) => {
+                    const originalOptionLetter = option.charAt(0);
+                    const optionText = option.substring(3);
+                    const displayLetter = displayLetters[index];
+                    optionsHTML += `
+                        <div class="mt-2">
+                            <input type="radio" name="question${id}" id="q${id}${originalOptionLetter}" value="${originalOptionLetter}" class="sr-only">
+                            <label for="q${id}${originalOptionLetter}" class="option-label w-full p-3 border rounded-lg flex items-center">
+                                <span class="font-bold mr-3 text-indigo-600">${displayLetter})</span>
+                                <span>${optionText}</span>
+                            </label>
+                        </div>
+                    `;
+                });
+                
+                questionElement.innerHTML = `
+                    <p class="font-semibold text-lg text-gray-800">${displayIndex + 1}. ${question}</p>
+                    <div class="mt-4 space-y-2">${optionsHTML}</div>
+                `;
+                quizContainer.appendChild(questionElement);
+            });
+            
+            // Inicializar la navegación
+            currentQuestionIndex = 0;
+            showQuestion(0);
+        }
+
+        function showQuestion(index) {
+            const questionBlocks = document.querySelectorAll('#quiz-container .question-block');
+            if (questionBlocks.length === 0) return;
+
+            // Hide current question
+            if (currentQuestionIndex >= 0 && currentQuestionIndex < questionBlocks.length) {
+                questionBlocks[currentQuestionIndex].classList.add('hidden');
+            }
+
+            // Show new question
+            const newIndex = Math.max(0, Math.min(index, questionBlocks.length - 1));
+            questionBlocks[newIndex].classList.remove('hidden');
+            currentQuestionIndex = newIndex;
+
+            const questionCounter = document.getElementById('question-counter');
+            const prevBtn = document.getElementById('prev-question-btn');
+            const nextBtn = document.getElementById('next-question-btn');
+            const submitArea = document.getElementById('submit-area');
+
+            if (questionCounter) {
+                questionCounter.textContent = `Pregunta ${newIndex + 1} de ${questionBlocks.length}`;
+            }
+
+            if (prevBtn) {
+                prevBtn.disabled = newIndex === 0;
+            }
+
+            if (nextBtn) {
+                if (newIndex === questionBlocks.length - 1) {
+                    nextBtn.classList.add('hidden');
+                } else {
+                    nextBtn.classList.remove('hidden');
+                    nextBtn.textContent = translations[selectedLanguage].nextBtnNav;
+                }
+            }
+            
+            // Mostrar siempre el área de envío
+            submitArea.classList.remove('hidden');
+        }
+
+        function submitQuiz(e) {
+            e.preventDefault();
+            
+            submitBtn.disabled = true;
+            submitBtnText.textContent = translations[selectedLanguage].submitBtnSending;
+            submitLoader.classList.remove('hidden');
+            saveStatus.innerHTML = ''; 
+
+            const totalQuestions = questions.length;
+            
+            const resultsData = {
+                studentName: currentStudentName,
+                studentEmail: currentStudentEmail,
+                score: 0, // Se calculará después
+                totalQuestions: totalQuestions,
+                responses: [],
+                createdAt: new Date().toISOString()
+            };
+
+            let correctas = 0;
+            let incorrectas = 0;
+
+            questions.forEach((questionData, index) => {
+                const { id, question } = questionData;
+                const questionBlock = document.getElementById(`question-block-${id}`);
+                const userAnswerInput = questionBlock.querySelector(`input[name="question${id}"]:checked`);
+                const userAnswer = userAnswerInput ? userAnswerInput.value : null;
+                const correctAnswer = answerKey[questions.findIndex(q => q.id === id)];
+                const isCorrect = userAnswer === correctAnswer;
+
+                if (isCorrect) {
+                    correctas++;
+                } else if (userAnswer) {
+                    incorrectas++;
+                }
+
+                resultsData.responses.push({ question, userAnswer, correctAnswer, isCorrect });
+                questionBlock.querySelectorAll(`input[name="question${id}"]`).forEach(r => r.disabled = true);
+            });
+
+            // Fórmula: (correctas/6) - (incorrectas/12)
+            resultsData.score = (correctas / 6) - (incorrectas / 12);
+            resultsData.score = Math.round(resultsData.score * 100) / 100; // Redondear a 2 decimales
+
+            try {
+                const allResults = JSON.parse(localStorage.getItem('testResults')) || [];
+                allResults.push(resultsData);
+                localStorage.setItem('testResults', JSON.stringify(allResults));
+                console.log("Results saved to localStorage");
+                saveStatus.textContent = translations[selectedLanguage].statusSavedLocal;
+                saveStatus.className = 'text-sm text-green-600 mt-2';
+            } catch (error) {
+                console.error("Error writing to localStorage: ", error);
+                saveStatus.textContent = translations[selectedLanguage].statusErrorLocal;
+                saveStatus.className = 'text-sm text-red-600 mt-2';
+            }
+            
+            const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbzzLh30VmjDRtiPwaIFulcx8nHDhFnq9R6RhprxLaQ00M-8c05AyMjAIOcdI08zmj6H/exec';
+
+            saveStatus.innerHTML += `<br>${translations[selectedLanguage].statusSendingSheets}`;
+            
+            fetch(googleScriptUrl, {
+                method: 'POST',
+                mode: 'cors', // Cambiado a cors
+                cache: 'no-cache',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8',
+                },
+                body: JSON.stringify({ type: 'report', ...resultsData })
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Error en la respuesta del servidor.');
+                }
+            })
+            .then(data => {
+                if (data.status === "success") {
+                    saveStatus.innerHTML = translations[selectedLanguage].statusSentSheets;
+                    saveStatus.className = 'text-sm text-blue-600 mt-2';
+                } else {
+                    throw new Error(data.message || "Error desconocido de Google Sheets");
+                }
+            })
+            .catch(error => {
+                console.error('Error de red enviant a Google Sheets:', error);
+                saveStatus.innerHTML += `<br>${translations[selectedLanguage].statusErrorNetwork}: ${error.message}`;
+                saveStatus.className = 'text-sm text-red-600 mt-2';
+            })
+            .finally(() => {
+                submitLoader.classList.add('hidden');
+            });
+
+            resultsContainer.classList.remove('hidden');
+            stopRecordingReminder.classList.add('hidden');
+            submitBtn.classList.add('hidden');
+            studentLogoutBtn.classList.remove('hidden');
+            logoutReminder.classList.remove('hidden');
+            resultsContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function resetQuizState() {
+            quizForm.reset();
+            quizFieldset.disabled = true;
+            resultsContainer.classList.add('hidden');
+            confirmLogoutBtn.classList.add('hidden');
+            studentLogoutBtn.classList.add('hidden');
+            logoutReminder.classList.add('hidden');
+            showResultsBtn.classList.add('hidden');
+            fullReportContainer.classList.add('hidden');
+            fullReportContainer.innerHTML = '';
+            stopRecordingReminder.classList.add('hidden');
+            submitBtn.classList.remove('hidden');
+            submitBtn.disabled = false;
+            submitBtnText.textContent = translations[selectedLanguage].submitBtnText;
+            submitLoader.classList.remove('hidden');
+            recordingInstructionBlock.classList.remove('bg-green-50', 'border-green-500', 'text-green-800');
+            recordingInstructionBlock.classList.add('bg-rose-50', 'border-rose-500', 'text-rose-800');
+            recordingInstructionBlock.querySelector('[data-translate-key="recStep1Title"]').textContent = translations[selectedLanguage].recStep1Title;
+            recordingInstructionBlock.querySelector('[data-translate-key="recStep1Msg"]').innerHTML = translations[selectedLanguage].recStep1Msg;
+            startRecordingBtn.classList.remove('hidden');
+            confirmRecordingBtn.classList.add('hidden');
+            quizContainer.classList.add('hidden');
+            document.getElementById('quiz-navigation').classList.add('hidden');
+            submitArea.classList.add('hidden');
+            saveStatus.innerHTML = '';
+            document.querySelectorAll('input[type="radio"]').forEach(radio => {
+                radio.disabled = false;
+            });
+            studentNameSelect.value = "";
+            studentEmailDisplay.value = "";
+            startQuizBtn.disabled = true;
+            backToStartBtn.classList.remove('hidden');
+            loadQuiz();
+        }
+
+        // --- View and Event Logic ---
+        
+        function showView(viewToShow) {
+            [teacherLoginView, appView, configView, fullReportContainer].forEach(view => {
+                const display = view === viewToShow ? 'flex' : 'none';
+                if (view.style.display !== display) {
+                    view.style.display = display;
+                }
+            });
+            if (viewToShow !== appView && viewToShow !== fullReportContainer) {
+                quizContent.style.display = 'none';
+                nameEntryView.style.display = 'flex';
+                resetQuizState();
+            }
+        }
+        
+        function displayTeacherResults() {
+            const container = document.getElementById('teacher-results-container');
+            const exportBtn = document.getElementById('export-csv-btn');
+            const emailBtn = document.getElementById('email-reports-btn');
+            container.innerHTML = '';
+
+            const allResults = JSON.parse(localStorage.getItem('testResults')) || [];
+
+            if (allResults.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">Encara no s\'han registrat resultats.</p>';
+                exportBtn.disabled = true;
+                emailBtn.disabled = true;
+                return;
+            }
+            
+            exportBtn.disabled = false;
+            emailBtn.disabled = false;
+
+            const table = document.createElement('table');
+            table.className = 'w-full text-left border-collapse';
+            table.innerHTML = `
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="border-b p-3">Data</th>
+                        <th class="border-b p-3">Alumne</th>
+                        <th class="border-b p-3">Email</th>
+                        <th class="border-b p-3">Qualificació</th>
+                        <th class="border-b p-3 text-center">Accions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+            const tbody = table.querySelector('tbody');
+
+            allResults.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(result => {
+                const date = new Date(result.createdAt).toLocaleString('ca-ES', { dateStyle: 'short', timeStyle: 'short' });
+                const row = document.createElement('tr');
+                row.className = 'border-b';
+                row.innerHTML = `
+                    <td class="p-3">${date}</td>
+                    <td class="p-3 font-medium">${result.studentName}</td>
+                    <td class="p-3 text-sm text-gray-600">${result.studentEmail}</td>
+                    <td class="p-3">${result.score} / ${result.totalQuestions}</td>
+                    <td class="p-3 text-center"><button data-id="${result.createdAt}" class="view-details-btn text-blue-600 hover:underline">Veure Detalls</button></td>
+                `;
+                tbody.appendChild(row);
+
+                const detailsRow = document.createElement('tr');
+                detailsRow.id = `details-${result.createdAt}`;
+                detailsRow.className = 'hidden';
+                let detailsHtml = '<td colspan="5" class="p-4 bg-gray-50">';
+                 detailsHtml += `<div class="font-bold mb-2">Detalls per a: ${result.studentName}</div>`;
+                result.responses.forEach((resp, qIndex) => {
+                    const resultClass = resp.isCorrect ? 'text-green-700' : 'text-red-700';
+                    const userAnswerText = resp.userAnswer ? resp.userAnswer.toUpperCase() : 'No contestada';
+                    detailsHtml += `
+                        <div class="mb-3 pb-3 border-b last:border-b-0">
+                            <p class="font-semibold">${qIndex + 1}. ${resp.question}</p>
+                            <p>Resposta alumne: <span class="font-medium ${resultClass}">${userAnswerText}</span></p>
+                            <p>Resposta correcta: <span class="font-medium">${resp.correctAnswer.toUpperCase()}</span></p>
+                        </div>
+                    `;
+                });
+                detailsHtml += '</td>';
+                detailsRow.innerHTML = detailsHtml;
+                tbody.appendChild(detailsRow);
+            });
+
+            container.appendChild(table);
+
+            document.querySelectorAll('.view-details-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    const detailsRow = document.getElementById(`details-${id}`);
+                    detailsRow.classList.toggle('hidden');
+                });
+            });
+        }
+
+        // Permite deseleccionar un radio button si se vuelve a hacer clic en él.
+        quizContainer.addEventListener('click', (e) => {
+            const radio = e.target.closest('input[type="radio"]');
+            if (!radio) return;
+
+            // El atributo 'data-checked' se usa para guardar el estado anterior.
+            const wasChecked = radio.getAttribute('data-checked') === 'true';
+
+            // Deseleccionar si ya estaba seleccionado
+            if (wasChecked) {
+                radio.checked = false;
+            }
+            
+            // Actualizar el estado para todos los radios del mismo grupo.
+            document.querySelectorAll(`input[name="${radio.name}"]`).forEach(r => r.setAttribute('data-checked', r.checked));
+        });
+
+        backToRoleSelectionTeacherBtn.addEventListener('click', () => {
+            populateStudentDropdown();
+            showView(appView);
+        });
+
+        const langCaBtn = document.getElementById('lang-ca-btn');
+        const langEsBtn = document.getElementById('lang-es-btn');
+
+        function updateStartButtonState() {
+            const selectedEmail = studentNameSelect.value;
+            startQuizBtn.disabled = !selectedEmail;
+        }
+
+        langCaBtn.addEventListener('click', () => setLanguage('ca'));
+        langEsBtn.addEventListener('click', () => setLanguage('es'));
+
+        studentNameSelect.addEventListener('change', (e) => {
+            const selectedEmail = e.target.value;
+            if (selectedEmail) {
+                const selectedStudent = students.find(s => s.email === selectedEmail);
+                studentEmailDisplay.value = selectedStudent.email;
+            } else {
+                studentEmailDisplay.value = "";
+            }
+            updateStartButtonState();
+        });
+
+        nameEntryForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const selectedEmail = studentNameSelect.value;
+            const selectedStudent = students.find(s => s.email === selectedEmail);
+
+            if (selectedStudent) {
+                currentStudentName = selectedStudent.name;
+                currentStudentEmail = selectedStudent.email;
+                
+                studentInfoDisplay.querySelector('p.font-bold').textContent = `${translations[selectedLanguage].studentBtn}: ${currentStudentName}`;
+                studentInfoDisplay.querySelector('p.text-gray-600').textContent = currentStudentEmail;
+                
+                nameEntryView.style.display = 'none';
+                quizContent.style.display = 'block';
+                
+                loadActiveTest(selectedLanguage);
+            }
+        });
+        
+        backToStartBtn.addEventListener('click', () => {
+             currentStudentName = '';
+             currentStudentEmail = '';
+             populateStudentDropdown();
+             showView(appView);
+        });
+
+
+        // --- BLOQUEO DE ACCESO PROFESOR ---
+        function isTeacherBlocked() {
+            const blockInfo = JSON.parse(localStorage.getItem('teacherBlockInfo'));
+            if (!blockInfo) return false;
+            if (blockInfo.blockUntil && Date.now() < blockInfo.blockUntil) {
+                return blockInfo.blockUntil;
+            }
+            return false;
+        }
+
+        function setTeacherBlockInfo(info) {
+            localStorage.setItem('teacherBlockInfo', JSON.stringify(info));
+        }
+
+        function resetTeacherBlockInfo() {
+            localStorage.removeItem('teacherBlockInfo');
+        }
+
+        function updateTeacherLoginBlockedState() {
+            const blockedUntil = isTeacherBlocked();
+            if (blockedUntil) {
+                teacherLoginForm.querySelector('button[type="submit"]').disabled = true;
+                teacherPasswordInput.disabled = true;
+                const mins = Math.ceil((blockedUntil - Date.now()) / 60000);
+                teacherLoginError.textContent = `Accés bloquejat per intents fallits. Torna-ho a intentar en ${mins} minut(s).`;
+                teacherLoginError.classList.remove('hidden');
+            } else {
+                teacherLoginForm.querySelector('button[type="submit"]').disabled = false;
+                teacherPasswordInput.disabled = false;
+                teacherLoginError.textContent = 'Contrasenya incorrecta.';
+                teacherLoginError.classList.add('hidden');
+            }
+        }
+
+        function getTeacherPassword() {
+            return localStorage.getItem('teacherPassword') || 'Feanor';
+        }
+        function setTeacherPassword(newPass) {
+            localStorage.setItem('teacherPassword', newPass);
+        }
+
+        teacherLoginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const blockedUntil = isTeacherBlocked();
+            if (blockedUntil) {
+                updateTeacherLoginBlockedState();
+                return;
+            }
+            teacherLoginError.classList.add('hidden');
+            if (teacherPasswordInput.value === getTeacherPassword()) {
+                displayTeacherResults();
+                showView(configView);
+                resetTeacherBlockInfo();
+            } else {
+                let blockInfo = JSON.parse(localStorage.getItem('teacherBlockInfo')) || { attempts: 0 };
+                blockInfo.attempts = (blockInfo.attempts || 0) + 1;
+                if (blockInfo.attempts >= 3) {
+                    blockInfo.blockUntil = Date.now() + 60 * 60 * 1000; // 1 hora
+                    teacherLoginError.textContent = 'Accés bloquejat per intents fallits. Torna-ho a intentar en 60 minuts.';
+                    teacherLoginError.classList.remove('hidden');
+                    teacherLoginForm.querySelector('button[type="submit"]').disabled = true;
+                    teacherPasswordInput.disabled = true;
+                } else {
+                    teacherLoginError.textContent = `Contrasenya incorrecta. Intents restants: ${3 - blockInfo.attempts}`;
+                    teacherLoginError.classList.remove('hidden');
+                }
+                setTeacherBlockInfo(blockInfo);
+            }
+        });
+
+        const changePasswordForm = document.getElementById('change-password-form');
+        if (changePasswordForm) {
+            changePasswordForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const current = document.getElementById('current-password').value;
+                const nuevo = document.getElementById('new-password').value;
+                const confirm = document.getElementById('confirm-password').value;
+                const status = document.getElementById('change-password-status');
+                status.textContent = '';
+                status.className = 'text-sm mt-2';
+                if (current !== getTeacherPassword()) {
+                    status.textContent = 'La contraseña actual no es correcta.';
+                    status.classList.add('text-red-600');
+                    return;
+                }
+                if (nuevo.length < 4) {
+                    status.textContent = 'La nueva contraseña debe tener al menos 4 caracteres.';
+                    status.classList.add('text-red-600');
+                    return;
+                }
+                if (nuevo !== confirm) {
+                    status.textContent = 'Las contraseñas no coinciden.';
+                    status.classList.add('text-red-600');
+                    return;
+                }
+                setTeacherPassword(nuevo);
+                status.textContent = 'Contraseña cambiada correctamente.';
+                status.classList.add('text-green-600');
+                changePasswordForm.reset();
+            });
+        }
+
+        function showTeacherLoginView() {
+            showView(teacherLoginView);
+            updateTeacherLoginBlockedState();
+        }
+
+        backToRoleSelectionTeacherBtn.addEventListener('click', () => {
+            teacherPasswordInput.value = '';
+            teacherLoginError.classList.add('hidden');
+            populateStudentDropdown();
+            showView(appView);
+        });
+
+        const clearResultsBtn = document.getElementById('clear-results-btn');
+        clearResultsBtn.addEventListener('click', () => {
+            if (clearResultsBtn.textContent === 'Esborrar tots els resultats') {
+                clearResultsBtn.textContent = 'Confirmar esborrat?';
+                clearResultsBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                clearResultsBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            } else {
+                localStorage.removeItem('testResults');
+                displayTeacherResults();
+                clearResultsBtn.textContent = 'Esborrar tots els resultats';
+                clearResultsBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                clearResultsBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        });
+
+        teacherLogoutBtn.addEventListener('click', () => {
+             teacherPasswordInput.value = '';
+             clearResultsBtn.textContent = 'Esborrar tots els resultats';
+             clearResultsBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+             clearResultsBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+             document.getElementById('email-status').textContent = '';
+             populateStudentDropdown();
+             showView(appView);
+        });
+        
+        const exportCsvBtn = document.getElementById('export-csv-btn');
+        const emailReportsBtn = document.getElementById('email-reports-btn');
+        const emailStatus = document.getElementById('email-status');
+
+        function escapeCSV(str) {
+            if (str === null || str === undefined) return '""';
+            return `"${String(str).replace(/"/g, '""')}"`;
+        }
+
+        function exportAllResultsToCSV() {
+            const allResults = JSON.parse(localStorage.getItem('testResults')) || [];
+            if (allResults.length === 0) {
+                alert("No hi ha resultats per exportar.");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            const headers = [
+                "Data", "Alumne", "Email", "Qualificació", "Total Preguntes",
+                "Num Pregunta", "Pregunta", "Resposta Alumne", "Resposta Correcta", "Resultat"
+            ];
+            csvContent += headers.map(h => escapeCSV(h)).join(',') + '\n';
+
+            allResults.forEach(result => {
+                const date = new Date(result.createdAt).toLocaleString('ca-ES');
+                result.responses.forEach((resp, index) => {
+                    const row = [
+                        date,
+                        result.studentName,
+                        result.studentEmail,
+                        `${result.score}/${result.totalQuestions}`,
+                        result.totalQuestions,
+                        index + 1,
+                        resp.question,
+                        resp.userAnswer ? resp.userAnswer.toUpperCase() : 'No contestada',
+                        resp.correctAnswer.toUpperCase(),
+                        resp.isCorrect ? 'Correcta' : 'Incorrecta'
+                    ];
+                    csvContent += row.map(cell => escapeCSV(cell)).join(',') + '\n';
+                });
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "informe_complet_tests.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function emailAllResults() {
+            const allResults = JSON.parse(localStorage.getItem('testResults')) || [];
+            if (allResults.length === 0) {
+                emailStatus.textContent = 'No hi ha resultats per enviar.';
+                return;
+            }
+            
+            emailStatus.textContent = `Preparant ${allResults.length} correus...`;
+            let count = 0;
+
+            const interval = setInterval(() => {
+                if (count >= allResults.length) {
+                    clearInterval(interval);
+                    emailStatus.textContent = `${allResults.length} correus preparats. Si us plau, envia'ls des del teu client de correu.`;
+                    return;
+                }
+
+                const result = allResults[count];
+                emailStatus.textContent = `Obrint correu per a ${result.studentName}... (${count + 1}/${allResults.length})`;
+
+                let body = `Hola ${result.studentName},
+
+`;
+                body += `Aquí tens el resum del teu test d'electricitat realitzat el ${new Date(result.createdAt).toLocaleString('ca-ES')}:
+`;
+                body += `Qualificació: ${result.score} de ${result.totalQuestions}
+
+`;
+                body += `--- Detall de Respostes ---
+
+`;
+
+                result.responses.forEach((resp, index) => {
+                    const userAnswerText = resp.userAnswer ? resp.userAnswer.toUpperCase() : 'No contestada';
+                    const resultText = resp.isCorrect ? 'Correcta' : 'Incorrecta';
+                    body += `Pregunta ${index + 1}: ${resp.question}
+`;
+                    body += ` -> La teva resposta: ${userAnswerText} (${resultText})
+`;
+                    if (!resp.isCorrect) {
+                        body += ` -> Resposta correcta: ${resp.correctAnswer.toUpperCase()}
+`;
+                    }
+                    body += `
+`;
+                });
+
+                body += `Salutacions,
+El teu professor`;
+
+                const subject = "Resultats del teu Test d'Electricitat";
+                const mailtoLink = `mailto:${result.studentEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+                window.open(mailtoLink, '_blank');
+                count++;
+            }, 1000);
+        }
+        
+        exportCsvBtn.addEventListener('click', exportAllResultsToCSV);
+        emailReportsBtn.addEventListener('click', emailAllResults);
+
+
+        startRecordingBtn.addEventListener('click', () => {
+            recordingInstructionBlock.querySelector('[data-translate-key="recStep1Title"]').textContent = translations[selectedLanguage].recStep2Title;
+            recordingInstructionBlock.querySelector('[data-translate-key="recStep1Msg"]').innerHTML = translations[selectedLanguage].recStep2Msg;
+            startRecordingBtn.classList.add('hidden');
+            confirmRecordingBtn.classList.remove('hidden');
+        });
+
+        confirmRecordingBtn.addEventListener('click', () => {
+            quizFieldset.disabled = false;
+            quizContainer.classList.remove('hidden');
+            document.getElementById('quiz-navigation').classList.remove('hidden');
+            backToStartBtn.classList.add('hidden');
+            
+            // Mostrar la primera pregunta
+            showQuestion(0);
+            
+            recordingInstructionBlock.querySelector('[data-translate-key="recStep1Title"]').textContent = translations[selectedLanguage].recConfirmedTitle;
+            recordingInstructionBlock.querySelector('[data-translate-key="recStep1Msg"]').textContent = translations[selectedLanguage].recConfirmedMsg;
+            recordingInstructionBlock.classList.remove('bg-rose-50', 'border-rose-500', 'text-rose-800');
+            recordingInstructionBlock.classList.add('bg-green-50', 'border-green-500', 'text-green-800');
+            confirmRecordingBtn.classList.add('hidden');
+        });
+        
+        function parseTestFromCSVString(csvString) {
+            const workbook = XLSX.read(csvString, { type: 'string', raw: true });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            parseTestFromSheetData(sheetData);
+        }
+
+        function loadActiveTest() {
+            let customTestCSV = localStorage.getItem('customTestCSV');
+            let customTestES = localStorage.getItem('customTestES');
+            try {
+                if (selectedLanguage === 'es') {
+                    if (customTestES) {
+                        parseTestFromCSVString(customTestES);
+                        quizTitle.textContent = translations.es.quizTitleCustom;
+                    } else {
+                        parseTestFromCSVString(defaultTestES);
+                        quizTitle.textContent = translations.es.quizTitleDefault;
+                    }
+                } else {
+                    if (customTestCSV) {
+                        parseTestFromCSVString(customTestCSV);
+                        quizTitle.textContent = translations.ca.quizTitleCustom;
+                    } else {
+                        parseTestFromCSVString(defaultTestCAT);
+                        quizTitle.textContent = translations.ca.quizTitleDefault;
+                    }
+                }
+            } catch (e) {
+                console.error("Error loading test, falling back to default:", e);
+                parseTestFromCSVString(defaultTestCAT);
+                quizTitle.textContent = translations[selectedLanguage].quizTitleDefault;
+            }
+            loadQuiz();
+        }
+
+        loadTestBtn.addEventListener('click', () => {
+            const file = fileUploadInput.files[0];
+            if (!file) {
+                testLoadStatus.textContent = 'Si us plau, selecciona un arxiu (.ods o .csv) primer.';
+                testLoadStatus.className = 'mt-2 text-sm text-red-600';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    parseTestFromSheetData(sheetData);
+                    
+                    const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+                    localStorage.setItem('customTestCSV', csvContent);
+
+                    testLoadStatus.textContent = `Test carregat correctament amb ${questions.length} preguntes.`;
+                    testLoadStatus.className = 'mt-2 text-sm text-green-600';
+                    fileUploadInput.value = '';
+                } catch (e) {
+                    testLoadStatus.textContent = `Error: ${e.message}`;
+                    testLoadStatus.className = 'mt-2 text-sm text-red-600';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        restoreDefaultBtn.addEventListener('click', () => {
+            localStorage.removeItem('customTestCSV');
+            loadActiveTest();
+            testLoadStatus.textContent = 'Test per defecte restaurat.';
+            testLoadStatus.className = 'mt-2 text-sm text-blue-600';
+        });
+
+        loadStudentListBtn.addEventListener('click', () => {
+            const file = studentFileUploadInput.files[0];
+            if (!file) {
+                studentLoadStatus.textContent = 'Si us plau, selecciona un arxiu (.ods o .csv) primer.';
+                studentLoadStatus.className = 'mt-2 text-sm text-red-600';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (sheetData.length < 1) throw new Error("El fitxer d'alumnes està buit.");
+
+                    const studentCSV = XLSX.utils.sheet_to_csv(worksheet);
+                    localStorage.setItem('customStudentListCSV', studentCSV);
+                    
+                    loadActiveStudentList();
+
+                    studentLoadStatus.textContent = `Llistat carregat correctament amb ${students.length} alumnes.`;
+                    studentLoadStatus.className = 'mt-2 text-sm text-green-600';
+                    studentFileUploadInput.value = '';
+                } catch (e) {
+                    studentLoadStatus.textContent = `Error: ${e.message}`;
+                    studentLoadStatus.className = 'mt-2 text-sm text-red-600';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+        
+        restoreDefaultStudentListBtn.addEventListener('click', () => {
+             localStorage.removeItem('customStudentListCSV');
+             loadActiveStudentList();
+             studentLoadStatus.textContent = 'Llistat d\'alumnes per defecte restaurat.';
+             studentLoadStatus.className = 'mt-2 text-sm text-blue-600';
+        });
+
+        const fileUploadEsInput = document.getElementById('file-upload-es-input');
+        const loadTestEsBtn = document.getElementById('load-test-es-btn');
+        const testLoadEsStatus = document.getElementById('test-load-es-status');
+
+        loadTestEsBtn.addEventListener('click', () => {
+            const file = fileUploadEsInput.files[0];
+            if (!file) {
+                testLoadEsStatus.textContent = 'Por favor, selecciona un archivo (.ods o .csv) primero.';
+                testLoadEsStatus.className = 'mt-2 text-sm text-red-600';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    parseTestFromSheetData(sheetData);
+                    const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+                    localStorage.setItem('customTestES', csvContent);
+                    testLoadEsStatus.textContent = `Test en castellano cargado correctamente con ${questions.length} preguntas.`;
+                    testLoadEsStatus.className = 'mt-2 text-sm text-green-600';
+                    fileUploadEsInput.value = '';
+                } catch (e) {
+                    testLoadEsStatus.textContent = `Error: ${e.message}`;
+                    testLoadEsStatus.className = 'mt-2 text-sm text-red-600';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        quizForm.addEventListener('submit', submitQuiz);
+        
+        confirmLogoutBtn.addEventListener('click', () => {
+            confirmLogoutBtn.classList.add('hidden');
+            showResultsBtn.classList.remove('hidden');
+        });
+
+        studentLogoutBtn.addEventListener('click', () => {
+            // Reset quiz state and go back to student selection
+            resetQuizState();
+            populateStudentDropdown();
+            showView(appView);
+        });
+
+        showResultsBtn.addEventListener('click', () => {
+            const password = prompt("Introdueix la contrasenya per veure l'informe complet:");
+            if (password === "xanadu") {
+                showFullReport();
+            } else if (password !== null) { // No alertar si el usuario cancela
+                alert("Contrasenya incorrecta.");
+            }
+        });
+
+        function showFullReport() {
+            fullReportContainer.innerHTML = ''; // Clear previous report
+
+            const allResults = JSON.parse(localStorage.getItem('testResults')) || [];
+            const result = allResults.find(r => r.studentEmail === currentStudentEmail);
+
+            if (!result) {
+                fullReportContainer.innerHTML = '<p>No s\'han trobat resultats per a aquest alumne.</p>';
+                fullReportContainer.classList.remove('hidden');
+                return;
+            }
+
+            let correctas = 0;
+            let incorrectas = 0;
+            let noContestadas = 0;
+
+            result.responses.forEach(resp => {
+                if (resp.isCorrect) {
+                    correctas++;
+                } else if (resp.userAnswer === null) {
+                    noContestadas++;
+                } else {
+                    incorrectas++;
+                }
+            });
+
+            let detailsHtml = `<div class="bg-white p-8 rounded-xl shadow-lg">
+`;
+            detailsHtml += `<h2 class="text-3xl font-bold text-gray-900 mb-4">Informe Complet de l\'Examen</h2>`;
+            detailsHtml += `<p class="mb-2"><strong>Alumne:</strong> ${result.studentName}</p>`;
+            detailsHtml += `<p class="mb-2"><strong>Email:</strong> ${result.studentEmail}</p>`;
+            detailsHtml += `<p class="mb-4"><strong>Qualificació:</strong> ${result.score} / ${result.totalQuestions}</p>`;
+            
+            detailsHtml += `<div class="flex justify-around text-center my-6 p-4 bg-gray-50 rounded-lg">
+`;
+            detailsHtml += `<div><p class="font-bold text-2xl text-green-600">${correctas}</p><p class="text-sm text-gray-600">Correctes</p></div>`;
+            detailsHtml += `<div><p class="font-bold text-2xl text-red-600">${incorrectas}</p><p class="text-sm text-gray-600">Incorrectes</p></div>`;
+            detailsHtml += `<div><p class="font-bold text-2xl text-yellow-600">${noContestadas}</p><p class="text-sm text-gray-600">No Contestades</p></div>`;
+            detailsHtml += `</div>
+`;
+
+            detailsHtml += `<hr class="my-4">
+`;
+
+            result.responses.forEach((resp, qIndex) => {
+                const resultClass = resp.isCorrect ? 'text-green-700' : 'text-red-700';
+                
+                const questionData = questions.find(q => q.question === resp.question);
+                let userAnswerFullText = 'No contestada';
+                if (resp.userAnswer && questionData) {
+                    const option = questionData.options.find(o => o.startsWith(resp.userAnswer));
+                    if (option) {
+                        userAnswerFullText = option.substring(3).trim();
+                    }
+                }
+
+                let correctAnswerFullText = '';
+                if (questionData) {
+                    const correctOption = questionData.options.find(o => o.startsWith(resp.correctAnswer));
+                    if (correctOption) {
+                        correctAnswerFullText = correctOption.substring(3).trim();
+                    }
+                }
+
+                detailsHtml += `
+                    <div class="mb-3 pb-3 border-b last:border-b-0">
+                        <p class="font-semibold">${qIndex + 1}. ${resp.question}</p>
+                        <p>La teva resposta: <span class="font-medium ${resultClass}">${userAnswerFullText}</span></p>
+                        <p>Resposta correcta: <span class="font-medium text-blue-700">${correctAnswerFullText}</span></p>
+                    </div>
+                `;
+            });
+
+            detailsHtml += `<div class="mt-8 text-center">
+                                <button id="retake-test-btn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-300">Repetir el Test</button>
+                                <button id="finalize-btn" class="bg-gray-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-600 transition-colors duration-300 ml-4">Finalitzar i Tornar a l'Inici</button>
+                            </div>`;
+            detailsHtml += `</div>`;
+
+            fullReportContainer.innerHTML = detailsHtml;
+            
+            appView.style.display = 'none';
+            fullReportContainer.style.display = 'block';
+            fullReportContainer.scrollIntoView({ behavior: 'smooth' });
+
+            document.getElementById('finalize-btn').addEventListener('click', () => {
+                populateStudentDropdown();
+                showView(appView);
+            });
+
+            document.getElementById('retake-test-btn').addEventListener('click', () => {
+                let allResults = JSON.parse(localStorage.getItem('testResults')) || [];
+                const updatedResults = allResults.filter(r => r.studentEmail !== currentStudentEmail);
+                localStorage.setItem('testResults', JSON.stringify(updatedResults));
+                populateStudentDropdown();
+                showView(appView);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadActiveStudentList();
+            loadActiveTest();
+            updateTeacherLoginBlockedState();
+            setLanguage('ca'); // Set default language on load
+
+            const nextBtn = document.getElementById('next-question-btn');
+            if (nextBtn) {
+                nextBtn.addEventListener('click', () => {
+                    showQuestion(currentQuestionIndex + 1);
+                });
+            }
+
+            const prevBtn = document.getElementById('prev-question-btn');
+            if (prevBtn) {
+                prevBtn.addEventListener('click', () => {
+                    showQuestion(currentQuestionIndex - 1);
+                });
+            }
+        });
+    </script>
+
+</body>
+</html>
